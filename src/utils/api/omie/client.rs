@@ -1,5 +1,5 @@
 use super::omie_structs;
-use omie_structs::{ResponseOverdueCharges, OverdueCharges, Client, Boleto};
+use omie_structs::{ResponseOverdueCharges, Charge, Client, Boleto};
 
 use std::time::Duration;
 use crate::utils::api::config::api_key::get_api_key;
@@ -18,7 +18,7 @@ impl OmieClient {
        Self { client, api_key }
     }
 
-    pub async fn list_overdue_charges(&self) -> Result<Vec<OverdueCharges>, Box<dyn std::error::Error>> {
+    pub async fn list_overdue_charges(&self) -> Result<Vec<Charge>, Box<dyn std::error::Error>> {
         let response: ResponseOverdueCharges = self
             .send_request("bills", Some(&[("status", "ATRASADO")]))
             .await?;

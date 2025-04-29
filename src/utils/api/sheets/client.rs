@@ -13,7 +13,8 @@ impl SheetClient {
       let client = reqwest::Client::new();
      Self { client, api_key }
   }
-  pub async fn update_sheet(&self, sheet: Vec<Vec<String>>) -> Result<(), Box<dyn std::error::Error>> {
+
+  pub async fn update_sheet(&self, sheet: &Vec<Vec<String>>) -> Result<(), Box<dyn std::error::Error>> {
       let response = &self.client
           .post(BASE_URL)
           .header("Content-Type", "application/json")
