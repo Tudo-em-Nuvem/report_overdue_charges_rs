@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::utils::api::config::api_key::get_api_key;
 
 const BASE_URL: &str = "https://logssheetapi.squareweb.app/lateCharges";
@@ -14,7 +16,7 @@ impl SheetClient {
      Self { client, api_key }
   }
 
-  pub async fn update_sheet(&self, sheet: &Vec<Vec<String>>) -> Result<(), Box<dyn std::error::Error>> {
+  pub async fn append_sheet(&self, sheet: &Vec<Vec<String>>) -> Result<(), Box<dyn std::error::Error>> {
       let response = &self.client
           .post(BASE_URL)
           .header("Content-Type", "application/json")
@@ -32,5 +34,54 @@ impl SheetClient {
               "Falha ao atualizar planilha"
           )))
       }
+    }
+
+    pub async fn update_sheet(&self, sheet: &Vec<Vec<String>>, range: String) -> Result<(), Box<dyn std::error::Error>> {
+        let body = serde_json::json!({
+            "range": range,
+            "data": sheet
+        });
+
+        let response = &self.client
+            .put(BASE_URL)
+            .header("Content-Type", "application/json")
+            .header("x-api-key", &self.api_key)
+            .body(body.to_string())
+            .send()
+            .await?;
+  
+        if response.status().is_success() {
+            Ok(())
+        } else {
+          println!("{}", response.status().as_str());
+            Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Falha ao atualizar planilha"
+            )))
+        }
       }
-  }
+
+    pub async fn get_sheet(&self) -> Result<Vec<Vec<String>>, Box<dyn std::error::Error>> {
+        let response = self.client
+            .get(BASE_URL)
+            .header("Content-Type", "application/json")
+            .header("x-api-key", &self.api_key)
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await?
+            .error_for_status()?;
+
+        if response.status().is_success() {
+            let res_text = response.text().await?;
+            let body: Vec<Vec<String>> = serde_json::from_str(&res_text)?;
+            
+            Ok(body)
+        } else {
+          println!("{}", response.status().as_str());
+            Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Falha ao obter planilha"
+            )))
+        }
+    }
+}

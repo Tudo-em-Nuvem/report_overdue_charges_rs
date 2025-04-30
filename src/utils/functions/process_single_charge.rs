@@ -35,6 +35,9 @@ pub async fn process_single_charge(
             }
         }
 
+        if link.is_empty() {
+            link = "Não encontrado".to_string();
+        }
         let tel = format_phone_number(
             client.telefone1_ddd, 
             client.telefone1_numero
