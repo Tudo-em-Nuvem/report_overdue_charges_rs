@@ -4,6 +4,7 @@ use crate::utils::api::config::api_key::get_api_key;
 
 const BASE_URL: &str = "https://logssheetapi.squareweb.app/lateCharges";
 
+#[derive(Clone)]
 pub struct SheetClient {
   client: reqwest::Client,
   api_key: String,
