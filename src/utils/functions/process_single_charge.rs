@@ -12,22 +12,31 @@ pub async fn process_single_charge(
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut link = String::new();
         let client = omie_client.get_client_omie(charge.codigo_cliente_fornecedor).await.unwrap();
-
+        let mut c_numero_contrato: String;
         if charge.id_conta_corrente == 1889067132 {
-            match asaas_client.get_client_asaas_by_contract(charge.cNumeroContrato.clone()).await? {
-                Some(client_data) => {
-                    if let Some(cobranca_asaas) =  asaas_client.get_charge_by_client_id(client_data.id).await? {
-                        let charge = cobranca_asaas[0].clone();
-                        link = charge.invoiceUrl;
+            if let Some(c_num_ctr) = charge.cNumeroContrato {
+                c_numero_contrato = c_num_ctr;
+                match asaas_client.get_client_asaas_by_contract(c_numero_contrato.clone()).await? {
+                    Some(client_data) => {
+                        if let Some(cobranca_asaas) =  asaas_client.get_charge_by_client_id(client_data.id).await? {
+                            let charge = cobranca_asaas[0].clone();
+                            link = charge.invoiceUrl;
+                        }
+                    }
+
+                    None => {
+                        c_numero_contrato = "Não encontrado".to_string();
+                        link = "Não encontrado".to_string();
                     }
                 }
-
-                None => {
-                    link = "Não encontrado".to_string();
-                }
+            } else {
+                c_numero_contrato = charge.cNumeroContrato.unwrap_or_default();
+                link = "Contrato não informado".to_string();
             }
         } else {
+            c_numero_contrato = charge.cNumeroContrato.unwrap_or_default();
             let boleto = omie_client.get_boleto(charge.codigo_lancamento_omie).await.unwrap();
+
             if boleto.cLinkBoleto.is_empty() {
                 link = "Não há cobrança na omie para o cliente".to_string();
             } else {
@@ -45,7 +54,7 @@ pub async fn process_single_charge(
 
         let row = vec![
             client.nome_fantasia,
-            charge.cNumeroContrato,
+            c_numero_contrato.to_string(),
             tel,
             charge.data_vencimento.to_string(),
             charge.valor_documento.to_string(),
