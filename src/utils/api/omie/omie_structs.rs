@@ -15,7 +15,8 @@ pub struct Charge {
   pub id_conta_corrente: i64,
   pub data_vencimento: String,
   pub valor_documento: f64,
-  pub cNumeroContrato: String
+  pub cNumeroContrato: Option<String>,
+  pub status_titulo: String
 }
 
 #[derive(Deserialize)]
@@ -25,6 +26,7 @@ pub struct Client {
   pub nome_fantasia: String,
   pub telefone1_ddd: String,
   pub telefone1_numero: String,
+  pub email: String
 }
 
 #[derive(Deserialize)]

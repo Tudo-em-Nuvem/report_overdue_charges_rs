@@ -20,9 +20,9 @@ impl OmieClient {
 
     pub async fn list_overdue_charges(&self) -> Result<Vec<Charge>, Box<dyn std::error::Error>> {
         let response: ResponseOverdueCharges = self
-            .send_request("bills", Some(&[("status", "ATRASADO")]))
-            .await?;
-        Ok(response.conta_receber_cadastro)
+        .send_request("bills", Some(&[("status", "ATRASADO")]))
+        .await?;
+    Ok(response.conta_receber_cadastro)
     }
 
     pub async fn get_client_omie(&self, code_client: i64) -> Result<Client, Box<dyn std::error::Error>> {
