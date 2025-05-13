@@ -1,106 +1,68 @@
 mod utils;
+mod charge_processor;
+mod sheet_updater;
+
+use std::io::{stdin, stdout, Write};
 use utils::api::omie::client::OmieClient;
 use utils::api::asaas::client::AsaasClient;
+use utils::api::whatsapp::client::WhatsappClient;
 use utils::api::sheets::client::SheetClient;
-use utils::functions::process_single_charge::process_single_charge;
-use utils::functions::clear_terminal::clear_terminal;
-use tokio::time::{sleep, Duration};
+use charge_processor::ChargeProcessor;
+use sheet_updater::SheetUpdater;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let omie_client: OmieClient = OmieClient::new();
-    let sheet_client: SheetClient = SheetClient::new();
-    let asaas_client: AsaasClient = AsaasClient::new();
+    let omie_client = OmieClient::new();
+    let sheet_client = SheetClient::new();
+    let asaas_client = AsaasClient::new();
+    let whatsapp_client = WhatsappClient::new();
+    let charge_processor = ChargeProcessor::new(omie_client, asaas_client, sheet_client.clone());
+    let sheet_updater = SheetUpdater::new(sheet_client, whatsapp_client);
 
-    let mut sheet_table: Vec<Vec<String>> = Vec::new();
+    let message: String = String::from("
+Escolha uma opção
+____________________________________________________________
+| [1] - Listar cobranças em atraso                         |
+| [2] - Enviar mensagens para cobranças que venceram ontem |
+____________________________________________________________\n
+digite sua resposta: "
+    );
 
-    let overdue_charges: Vec<utils::api::omie::omie_structs::Charge> = omie_client.list_overdue_charges().await.unwrap();
+    let option: String = input(String::from(message));
 
-    let count_charges: usize = overdue_charges.len();
-    let mut counter: usize = 0;
-
-    let registered_sheet: Vec<Vec<String>> = match sheet_client.get_sheet().await {
-        Ok(sheet) if !sheet.is_empty() => sheet,
-        Ok(_) => {
-            println!("Planilha registrada está vazia. Continuando...");
-            Vec::new()
+    match option.as_str() {
+        "1" => {
+            println!("Regitrando cobranças em atraso...");
+            charge_processor.process_overdue_charges().await?;       
         }
-        Err(e) => {
-            eprintln!("Erro ao obter a planilha registrada: {}", e);
-            Vec::new()
+        "2" => {
+            println!("Enviando mensagens para cobranças que venceram ontem...");
+            sheet_updater.send_message().await?;
+
+            return Ok(());
         }
-    };
-
-    for charge in overdue_charges {
-        clear_terminal();
-        counter += 1;
-        println!("{} de {}", counter, count_charges);
-
-        if registered_sheet.iter().any(|row: &Vec<String>| 
-            row[1] == charge.cNumeroContrato.to_string() &&
-            row[3] == charge.data_vencimento.to_string() &&
-            row[4] == charge.valor_documento.to_string()
-        )  { continue; }
-        
-        let row: Vec<String> = process_single_charge(
-            &omie_client, 
-            &asaas_client, 
-            charge
-        ).await.unwrap();
-
-        sheet_table.push(row);
-
-        if sheet_table.len() == 10 || counter == count_charges  {
-            sheet_client.append_sheet(&sheet_table).await?;
-            sheet_table = Vec::new();
+        _ => {
+            println!("Opção inválida");
+            return Ok(());
         }
-    }
-
-    sleep(Duration::from_secs(1)).await;
-
-    let registered_sheet: Vec<Vec<String>> = sheet_client.get_sheet().await.unwrap_or_else(|_| Vec::new());
-
-    let mut sheet_index: usize = 1; // Índice real da planilha (começa em 1)
-    let mut counter: usize = 1;
-
-    let registered_sheet_len = registered_sheet.len();
-    
-    let mut batch: Vec<Vec<String>> = Vec::new();
-
-    for row in registered_sheet {
-        let mut new_row = row.clone();
-        if row.len() < 8 {
-            // enviar mensagem
-            new_row.push("Primeira mensagem".to_string());
-            batch.push(new_row);
-        } else { batch.push(new_row); }
-
-        if counter == 10 || sheet_index == registered_sheet_len {
-            let start_index = if sheet_index < counter { 1 } else {
-                sheet_index - counter + 1
-            };
-
-            let data_update = batch
-                .iter()
-                .rev()
-                .take(counter)
-                .cloned()
-                .collect::<Vec<Vec<String>>>();
-    
-            println!("{:?}", data_update[0].clone());
-            println!("A{}:H{}", start_index, sheet_index.clone());
-
-            sheet_client.update_sheet(&data_update
-                .iter()
-                .rev()
-                .cloned()
-                .collect::<Vec<Vec<String>>>(), 
-                format!("A{}:H{}", start_index, sheet_index )).await?;
-
-            counter = 1;
-        } else { counter+=1; }
-        sheet_index += 1;
     }
 
     Ok(())
 }
+
+fn input(question: String) -> String {
+    let mut s: String = String::new();
+    print!("{}", question.to_string());
+
+    let _ = stdout().flush();
+    stdin().read_line(&mut s).expect("Algo deu errado");
+
+    if let Some('\n') = s.chars().next_back() {
+        s.pop();
+    } if let Some('\r') = s.chars().next_back() {
+        s.pop();
+    }
+
+    s
+}
+
