@@ -7,6 +7,7 @@ use utils::api::omie::client::OmieClient;
 use utils::api::asaas::client::AsaasClient;
 use utils::api::whatsapp::client::WhatsappClient;
 use utils::api::sheets::client::SheetClient;
+use utils::functions::clear_terminal::clear_terminal;
 use charge_processor::ChargeProcessor;
 use sheet_updater::SheetUpdater;
 
@@ -19,35 +20,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let charge_processor = ChargeProcessor::new(omie_client, asaas_client, sheet_client.clone());
     let sheet_updater = SheetUpdater::new(sheet_client, whatsapp_client);
 
-    let message: String = String::from("
+    loop {
+        let message: String = String::from("
 Escolha uma opção
-____________________________________________________________
-| [1] - Listar cobranças em atraso                         |
-| [2] - Enviar mensagens para cobranças que venceram ontem |
-____________________________________________________________\n
+_________________________________________________________________________
+| [1] - Listar cobranças em atraso                                      |
+| [2] - Enviar mensagens para cobranças que venceram ontem              |
+| [3] - Enviar mensagens para cobranças que venceram em data específica |
+_________________________________________________________________________\n
 digite sua resposta: "
-    );
+        );
 
-    let option: String = input(String::from(message));
+        clear_terminal();
+        let option: String = input(String::from(message));
+    
+        clear_terminal();
+        match option.as_str() {
+            "1" => {
+                println!("Regitrando cobranças em atraso...");
+                charge_processor.process_overdue_charges().await?;       
+                return Ok(());
+            }
+            "2" => {
+                println!("Enviando mensagens para cobranças que venceram ontem...");
+                sheet_updater.send_message(None).await?;
+                return Ok(());
+            }
+            "3" => {
+                let mut message: String = String::from("Digite a data (dd/mm/aaaa): ");
+                loop {
+                    clear_terminal();
+                    let date: String = input(String::from(message.clone()));
+                    let date_split: Vec<&str> = date.split('/').collect();
+                    if date_split.len() != 3 || date_split[0].len() != 2 || date_split[1].len() != 2 || date_split[2].len() != 4{
+                        message = "Data inválida, tente novamente\nDigite a data (dd/mm/aaaa): ".to_string();
+                        continue;
+                    }
 
-    match option.as_str() {
-        "1" => {
-            println!("Regitrando cobranças em atraso...");
-            charge_processor.process_overdue_charges().await?;       
-        }
-        "2" => {
-            println!("Enviando mensagens para cobranças que venceram ontem...");
-            sheet_updater.send_message().await?;
-
-            return Ok(());
-        }
-        _ => {
-            println!("Opção inválida");
-            return Ok(());
+                    println!("Enviando mensagens para cobranças que venceram em data específica...");
+                    sheet_updater.send_message(Some(date)).await?;
+                    return Ok(());
+                }
+            }
+            _ => {
+                println!("Opção inválida");
+                return Ok(());
+            }
         }
     }
-
-    Ok(())
 }
 
 fn input(question: String) -> String {
