@@ -15,16 +15,24 @@ impl WhatsappClient {
     Self { client, api_key, base_url }
     }
 
-    pub async fn send_message(&self, tel_number: String, message: String) -> () {
-      let _ = &self.client
+    pub async fn send_message(&self, tel_number: String, message: String) -> Result<(), Box<dyn std::error::Error>> {
+      let response = self.client
         .post(&self.base_url)
         .header("Content-Type", "application/json")
         .header("Client-Token", &self.api_key)
         .body(serde_json::to_string(&serde_json::json!({
           "phone": tel_number,
           "message": message
-        })).unwrap())
+        }))?)
         .send()
-        .await;
+        .await?;
+
+      if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await?;
+        return Err(format!("Erro ao enviar mensagem. Status: {}. Resposta: {}", status, error_text).into());
+      }
+
+      Ok(())
     }
 }
