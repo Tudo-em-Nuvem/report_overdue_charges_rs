@@ -11,27 +11,35 @@ impl SheetUpdater {
         Self { sheet_client, whatsapp_client }
     }
 
-    pub async fn send_message(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_message(&self, date: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
         let registered_sheet = self.sheet_client.get_sheet().await.unwrap_or_else(|_| Vec::new());
         let mut sheet_index = 1;
         let mut counter = 1;
         let registered_sheet_len = registered_sheet.len();
         let mut batch: Vec<Vec<String>> = Vec::new();
-        let yesterday = get_yesterday_date_in_sao_paulo();
 
+        let date: String = date.unwrap_or_else(|| {
+            get_yesterday_date_in_sao_paulo()
+        });
+
+        let mut sent_tel: Vec<String> = Vec::new();
         for row in registered_sheet {
             let mut new_row = row.clone();
 
-            if row.len() < 8 && row[3] == yesterday {
-                let _ = &self.whatsapp_client.send_message(
-                    row[0].clone(),
-                    format!("Olá, {}! Sua cobrança está vencida desde {}. Por favor, entre em contato conosco para regularizar sua situação.", row[1], row[3])
-                ).await;
-                new_row.push("Primeira mensagem".to_string());
+            if row.len() < 8  && !sent_tel.contains(&row[2]) && row[3] == date {
+                println!("Mensagem enviada para ({}): {}", row[2], date);
+                let message_status = match self.whatsapp_client.send_message(
+                    row[2].clone(),
+                    format!("Olá, verifiquei que a sua cobrança está vencida desde {}. Posso te enviar o link para pagamento?", row[3])
+                ).await {
+                    Ok(_) => "Primeira mensagem",
+                    Err(_) => "Não enviado"
+                };
+
+                new_row.push(message_status.to_string());
                 batch.push(new_row);
-            } else {
-                batch.push(new_row);
-            }
+                sent_tel.push(row[2].clone());
+            } else { batch.push(new_row); }
 
             if counter == 10 || sheet_index == registered_sheet_len {
                 self.process_batch(&batch, counter, sheet_index).await?;
