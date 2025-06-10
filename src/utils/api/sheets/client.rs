@@ -85,4 +85,19 @@ impl SheetClient {
             )))
         }
     }
+
+    pub async fn clear_sheet(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let response: reqwest::Response = self.client.delete(BASE_URL)
+            .header("x-api-key", &self.api_key)
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await?
+            .error_for_status()?;
+
+        if response.status().is_success() { Ok(()) }
+        else {Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Falha para limpar planilha"
+            )))}
+    }
 }

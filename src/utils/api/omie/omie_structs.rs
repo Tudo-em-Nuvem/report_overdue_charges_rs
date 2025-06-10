@@ -5,9 +5,9 @@ pub struct ResponseOverdueCharges {
   pub conta_receber_cadastro: Vec<Charge>,
 }
 
-
 #[derive(Deserialize)]
 #[derive(Debug)]
+#[derive(Clone)]
 #[allow(non_snake_case)]
 pub struct Charge {
   pub codigo_cliente_fornecedor: i64,
