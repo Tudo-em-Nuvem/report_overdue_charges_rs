@@ -1,3 +1,4 @@
+use crate::utils::functions::try_until_wokrs::try_until_works;
 use crate::utils::{api::sheets::client::SheetClient, functions::get_current_date::get_yesterday_date_in_sao_paulo};
 use crate::utils::api::whatsapp::client::WhatsappClient;
 
@@ -11,8 +12,8 @@ impl SheetUpdater {
         Self { sheet_client, whatsapp_client }
     }
 
-    pub async fn send_message(&self, date: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
-        let registered_sheet = self.sheet_client.get_sheet().await.unwrap_or_else(|_| Vec::new());
+    pub async fn send_message(&self, date: Option<String>) -> Result<(), Box<dyn std::error::Error>> {  
+        let registered_sheet = try_until_works(|| async { self.sheet_client.get_sheet().await }).await?;
         let mut sheet_index = 1;
         let mut counter = 1;
         let registered_sheet_len = registered_sheet.len();
