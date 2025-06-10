@@ -37,7 +37,7 @@ digite sua resposta: "
         clear_terminal();
         match option.as_str() {
             "1" => {
-                println!("Regitrando cobranças em atraso...");
+                println!("Registrando cobranças em atraso...");
                 charge_processor.process_overdue_charges().await?;       
                 return Ok(());
             }
