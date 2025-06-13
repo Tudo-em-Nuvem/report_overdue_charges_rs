@@ -6,7 +6,8 @@ use crate::utils::api::sheets::client::SheetClient;
 use crate::utils::api::omie::omie_structs::Charge;
 use crate::utils::functions::clear_terminal::clear_terminal;
 use crate::utils::functions::process_single_charge::process_single_charge;
-use crate::utils::functions::try_until_wokrs::try_until_works;
+use crate::utils::functions::try_until_works::{try_until_works, RetryConfig};
+
 pub struct ChargeProcessor {
     omie_client: OmieClient,
     asaas_client: AsaasClient,
@@ -26,14 +27,13 @@ impl ChargeProcessor {
         let overdue_charges = self.omie_client.list_overdue_charges().await?;
         println!("{}", overdue_charges.len());
 
-            self.process_charges_to_sheet(overdue_charges).await;
+        self.process_charges_to_sheet(overdue_charges).await;
         
         Ok(())
     }
 
     async fn process_charges_to_sheet(&self, overdue_charges: Vec<Charge>) -> () {
-        let _ = try_until_works(|| async { self.sheet_client.clear_sheet().await }).await;
-        
+        let _ = try_until_works(|| async { self.sheet_client.clear_sheet().await }, RetryConfig::Sheets).await;
         
         let mut table: Vec<Vec<String>> = Vec::new();
         let count_charges = overdue_charges.len();
@@ -59,7 +59,7 @@ impl ChargeProcessor {
                         charge.clone()
                     ).await 
                 }
-            }).await;
+            }, RetryConfig::Omie).await;
 
             match row {
                 Ok(row) => {
@@ -68,7 +68,7 @@ impl ChargeProcessor {
 
                     if counter >= 10 || counter_charges == count_charges {
                         println!("Enviando lote de cobranças para a planilha...");
-                        let _ = try_until_works(|| async { self.sheet_client.append_sheet(&table).await }).await;
+                        let _ = try_until_works(|| async { self.sheet_client.append_sheet(&table).await }, RetryConfig::Sheets).await;
                         table.clear();
                         counter = 0;
                     }

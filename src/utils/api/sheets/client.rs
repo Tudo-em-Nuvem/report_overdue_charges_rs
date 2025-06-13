@@ -89,7 +89,7 @@ impl SheetClient {
     pub async fn clear_sheet(&self) -> Result<(), Box<dyn std::error::Error>> {
         let response: reqwest::Response = self.client.delete(BASE_URL)
             .header("x-api-key", &self.api_key)
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(60))
             .send()
             .await?
             .error_for_status()?;

@@ -4,6 +4,7 @@ use format_phone_number::format_phone_number;
 use crate::utils::api::omie::client::OmieClient;
 use crate::utils::api::omie::omie_structs::Charge;
 use crate::utils::api::asaas::client::AsaasClient;
+use crate::utils::functions::try_until_works::{try_until_works, RetryConfig};
 
 pub async fn process_single_charge(
   omie_client: &OmieClient,
@@ -35,7 +36,12 @@ pub async fn process_single_charge(
             }
         } else {
             c_numero_contrato = charge.cNumeroContrato.unwrap_or_default();
-            let boleto = omie_client.get_boleto(charge.codigo_lancamento_omie).await.unwrap();
+            let boleto = try_until_works(|| {
+                async {
+                    let boleto = omie_client.get_boleto(charge.codigo_lancamento_omie).await.unwrap();
+                    Ok::<_, Box<dyn std::error::Error>>(boleto)
+                }
+            }, RetryConfig::Omie).await?;
 
             if boleto.cLinkBoleto.is_empty() {
                 link = "Não há cobrança na omie para o cliente".to_string();

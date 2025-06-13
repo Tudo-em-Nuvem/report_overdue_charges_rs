@@ -39,11 +39,15 @@ digite sua resposta: "
             "1" => {
                 println!("Registrando cobranças em atraso...");
                 charge_processor.process_overdue_charges().await?;       
+                println!("\nPressione ENTER para sair...");
+                let _ = input(String::new());
                 return Ok(());
             }
             "2" => {
                 println!("Enviando mensagens para cobranças que venceram ontem...");
-                sheet_updater.send_message(None).await?;
+                sheet_updater.send_message(None, false).await?;
+                println!("\nPressione ENTER para sair...");
+                let _ = input(String::new());
                 return Ok(());
             }
             "3" => {
@@ -52,18 +56,33 @@ digite sua resposta: "
                     clear_terminal();
                     let date: String = input(String::from(message.clone()));
                     let date_split: Vec<&str> = date.split('/').collect();
-                    if date_split.len() != 3 || date_split[0].len() != 2 || date_split[1].len() != 2 || date_split[2].len() != 4{
+
+                    if date_split.len() != 3 || date_split[0].len() != 2 || date_split[1].len() != 2 || date_split[2].len() != 4 {
                         message = "Data inválida, tente novamente\nDigite a data (dd/mm/aaaa): ".to_string();
                         continue;
                     }
 
+                    let option: String = input(String::from(String::from("Você deseja notificar que o sistema vai ser suspenso? S/N: ")));
+                    let notify_suspension: bool = match option.to_lowercase().as_str() {
+                        "s" | "sim" => true,
+                        "n" | "não" | "nao" => false,
+                        _ => {
+                            println!("Opção inválida, não será notificado que o sistema vai ser suspenso");
+                            false
+                        }
+                    };
+
                     println!("Enviando mensagens para cobranças que venceram em data específica...");
-                    sheet_updater.send_message(Some(date)).await?;
+                    sheet_updater.send_message(Some(date), notify_suspension).await?;
+                    println!("\nPressione ENTER para sair...");
+                    let _ = input(String::new());
                     return Ok(());
                 }
             }
             _ => {
                 println!("Opção inválida");
+                println!("\nPressione ENTER para sair...");
+                let _ = input(String::new());
                 return Ok(());
             }
         }
